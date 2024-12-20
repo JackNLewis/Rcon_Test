@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -38,27 +39,17 @@ func ShutDown() {
 
 // Starts reading commands to be executed on the server
 func Start() {
-	// for {
-	// 	response, err := conn.Execute("list")
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-
-	// 	time.Sleep(2 * time.Second)
-
-	// 	fmt.Println(response)
-	// }
-
 	for {
 		req := <-command_channel
+		fmt.Printf("runing command %s\n", req.command)
 		response, err := conn.Execute(req.command)
+		fmt.Printf("response  %s\n", response)
 		if err != nil {
 			log.Fatal(err)
 		}
 		req.res = response
 		req.done <- true
 	}
-
 }
 
 // sends a /list command to the get player channel
@@ -76,4 +67,38 @@ func GetPlayerCommand() (string, error) {
 		return "", errors.New("error: player list timeout")
 	}
 	return request.res, nil
+}
+
+// sends a /list command to the get player channel
+func KickPlayer(player string) error {
+	request := &Request{
+		command: "kick " + player,
+		done:    make(chan bool),
+	}
+
+	command_channel <- request
+
+	select {
+	case <-request.done:
+	case <-time.After(2 * time.Second):
+		return errors.New("error: kick player timeout")
+	}
+	return nil
+}
+
+// sends a /list command to the get player channel
+func TeleportToCoord(player, x, y, z string) error {
+	request := &Request{
+		command: fmt.Sprintf("tp %s %s %s %s", player, x, y, z),
+		done:    make(chan bool),
+	}
+
+	command_channel <- request
+
+	select {
+	case <-request.done:
+	case <-time.After(2 * time.Second):
+		return errors.New("error: teleport player to coord timeout")
+	}
+	return nil
 }
